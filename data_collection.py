@@ -3,7 +3,9 @@ import datetime
 
 
 PLACES_KEY = 'AIzaSyDg1qhBCO1I7heUbEfXKM4OSNO_EG7P-mw'
-MAPS_KEY = 'AIzaSyCPzQ7BurH64jXtsgwP7c7VQBK8LQPF5MY'
+#MAPS_KEY = 'AIzaSyCPzQ7BurH64jXtsgwP7c7VQBK8LQPF5MY'
+#MAPS_KEY = 'AIzaSyCPLE1prImwt1JXgbdtwfomzfiqr5bO1us'
+MAPS_KEY = 'AIzaSyC-FkHdIYrMklmF2VwKJUgJU5xVoJEd0nw'
 
 def collectData(user_data):
     all_data = {}
@@ -38,7 +40,7 @@ def collectMapData(place_data):
                 destinations.append(address2)
 
     for j in range(0, len(origins), 10):
-
+        print(len(origins[j:min(j+10, len(origins))]))
         dest_data = maps_client.distance_matrix(
             origins[j:min(j+10, len(origins))], 
             destinations[j:min(j+10, len(origins))]
@@ -123,9 +125,3 @@ def collectUserData(user_data):
             places[keyword].append(newItem)
 
     return places
-
-
-test_data = {'start_address': '1769 Rockies Ct, Lafayette, CO', 'keywords': ['restaurant', 'cafe'], 'radius': 1609}
-
-collectData(test_data)
-            
