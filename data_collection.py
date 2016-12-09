@@ -3,9 +3,16 @@ import datetime
 
 
 PLACES_KEY = 'AIzaSyDg1qhBCO1I7heUbEfXKM4OSNO_EG7P-mw'
+PLACES_KEY = 'AIzaSyBD5fNjnMJ2vo_jWsz1x3fWXrcRb4TOAJ0'
+
 #MAPS_KEY = 'AIzaSyCPzQ7BurH64jXtsgwP7c7VQBK8LQPF5MY'
 #MAPS_KEY = 'AIzaSyCPLE1prImwt1JXgbdtwfomzfiqr5bO1us'
-MAPS_KEY = 'AIzaSyC-FkHdIYrMklmF2VwKJUgJU5xVoJEd0nw'
+#MAPS_KEY = 'AIzaSyC-FkHdIYrMklmF2VwKJUgJU5xVoJEd0nw'
+#MAPS_KEY = 'AIzaSyDwa9wQN2Co8owZX6VaLRm9L9B7XQj6Svk'
+MAPS_KEY = 'AIzaSyCeRAPsVxCpJsUzWfJMxLAagpe4VeoL-8Y'
+#MAPS_KEY = 'AIzaSyDW3rShVk6rPbo8CzZ3UbJ5NJEAu2hVz-k'
+#MAPS_KEY = 'AIzaSyAWR52HC7ZOTkkXW0Clpzm0dT_NXo4g1vs'
+#MAPS_KEY = 'AIzaSyAp2R3_jPn_So3xm8ljiZUMSqbFCCMClYo'
 
 def collectData(user_data):
     all_data = {}
@@ -83,6 +90,8 @@ def collectUserData(user_data):
     }
     places["HOME"].append(homeItem)
 
+    seen_places = []
+
     for keyword in user_data['keywords']:
         data = places_client.places_nearby(
             geocode_tup,
@@ -112,16 +121,20 @@ def collectUserData(user_data):
 
 
             geocode = geocode_client.geocode(placeStats["result"]["formatted_address"])
-            geo_tup = (geocode[0]['geometry']['location']['lat'], geocode[0]['geometry']['location']['lng'])
+            if (len(geocode) > 0):
+                if ((p["name"], placeStats["result"]["formatted_address"]) not in seen_places):
+                    geo_tup = (geocode[0]['geometry']['location']['lat'], geocode[0]['geometry']['location']['lng'])
 
-            newItem = {
-                'name':  p["name"],
-                'opening_hours':  trange,
-                'price_level':  p["price_level"],
-                'rating': rating,
-                'address': placeStats["result"]["formatted_address"],
-                'geo_loc': geo_tup,
-            }
-            places[keyword].append(newItem)
+                    newItem = {
+                        'name':  p["name"]+" ("+placeStats["result"]["formatted_address"].replace(",", "")+")",
+                        'opening_hours':  trange,
+                        'price_level':  p["price_level"],
+                        'rating': rating,
+                        'address': placeStats["result"]["formatted_address"],
+                        'geo_loc': geo_tup,
+                    }
+                    places[keyword].append(newItem)
+                    seen_places.append((p["name"], placeStats["result"]["formatted_address"]))
+        #places[keyword] = places[keyword][:5]
 
     return places

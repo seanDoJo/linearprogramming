@@ -8,14 +8,14 @@ tfinley.net/software/pyglpk/discussion.html
 """
 var_mapping = {}
 
-def solve(data):
+def cascade(data):
     timeArray = []
     decisionArray = []
     edgeArray = []
-    flowArray = []
+
     lp = LpProblem("value optimizer", LpMaximize)
     
-    initialize(data, timeArray, decisionArray, edgeArray, flowArray)
+    initialize(data, timeArray, decisionArray, edgeArray)
 
     addBudgetConstraint(data, decisionArray, lp)   
    
@@ -25,36 +25,70 @@ def solve(data):
 
     addHomeConstraints(data, timeArray, decisionArray, lp)
 
-    addDecisionConstraints(data, timeArray, decisionArray, lp)
+    addDecisionConstraints(data, timeArray, decisionArray, lp) 
 
-    addFlowOutgoing(data, flowArray, lp)
+    addObjectiveFunction(data, timeArray, decisionArray, lp)
 
-    addFlowConservation(data, flowArray, lp)
+    return (timeArray, decisionArray, edgeArray, lp)
 
-    addFlowDecision(data, flowArray, decisionArray, lp)
-
-    addObjectiveFunction(data, timeArray, decisionArray, flowArray, lp)
-
-    print(lp)
+def solve(data):
+    
+    (timeArray, decisionArray, edgeArray, lp) = cascade(data) 
     
     status = lp.solve(GLPK(msg=0))
+
+    
+    subtours = collectSubtours(edgeArray)
+    while len(subtours) > 1:
+        for subtour in subtours:
+            addSubtourConstraint(data, subtour, edgeArray, lp)
+        status = lp.solve(GLPK(msg=0))
+        subtours = collectSubtours(edgeArray)
+
     print(LpStatus[status])
-
-    print("Time Values:")
+    place_data = data["place_data"]
+    gdata = [ place_data[k]  for k in place_data ]
+    gdata = [ item for row in gdata for item in row ]
     for (x, k, p) in timeArray:
-        print("\t{}: {} seconds".format(var_mapping[x.name], value(x)))
+        lastItem = None
+        for item in gdata:
+            if item["name"] == var_mapping[x.name]:
+                lastItem = item
+                break
+        print("\t{}: {}, {}, {}".format(var_mapping[x.name], value(x), lastItem["rating"], lastItem["price_level"]))
 
-    print("Choice Values:")
-    for (x, k, p) in decisionArray:
-        print("\t{}: {}".format(var_mapping[x.name], value(x)))
+    chosenEdges = []
+    
+    for (e, t) in edgeArray:
+        if value(e):
+            frm = var_mapping[e.name].split(",")[0].strip()
+            to = var_mapping[e.name].split(",")[1].strip()
+            chosenEdges.append((frm, to))
 
-    print("Edge Values:")
-    for (x, t) in edgeArray:
-        print("\t{}: {}".format(var_mapping[x.name], value(x)))
+    last = ""
+    for x in chosenEdges:
+        if x[0] == "HOME":
+            last = x[1]
+            chosenEdges.remove(x)
+            break
 
+    if len(chosenEdges) > 0:
+        print("HOME")
+        while last != "HOME":
+            print(last) 
+            for x in chosenEdges:
+                if x[0] == last:
+                    last = x[1]
+                    chosenEdges.remove(x)
+                    break
+
+        print("HOME")
+    print(chosenEdges)
+    print(len(chosenEdges))
+            
     print("Total: {}".format(value(lp.objective)))
 
-def initialize(data, timeArray, decisionArray, edgeArray, flowArray):
+def initialize(data, timeArray, decisionArray, edgeArray):
     # function to initialize the columns and rows of the problem
     global var_mapping
     place_data = data["place_data"]
@@ -68,17 +102,16 @@ def initialize(data, timeArray, decisionArray, edgeArray, flowArray):
         lb = time_constraints[keyword]
         ub = data["user_data"]["bounds"][keyword]
         for place in data["place_data"][keyword]:
-            tVar = LpVariable("x{}".format(curr_int), lb, ub, LpContinuous)
+            tVar = LpVariable("x{}".format(curr_int), 0, float(ub), LpContinuous)
             tEntry = (tVar, keyword, place["price_level"])
             timeArray.append(tEntry)
             var_mapping[tVar.name] = place["name"]
             curr_int += 1
 
             if place["name"] == "HOME":
-                dVar = LpVariable("x{}".format(curr_int), 1, 1, LpInteger)
-                print("HOME: {}".format(dVar.name))
+                dVar = LpVariable("x{}".format(curr_int), 1, 1, LpBinary)
             else:
-                dVar = LpVariable("x{}".format(curr_int), 0, 1, LpInteger) 
+                dVar = LpVariable("x{}".format(curr_int), 0, 1, LpBinary) 
             dEntry = (dVar, keyword, place["price_level"])
             decisionArray.append(dEntry)
             var_mapping[dVar.name] = place["name"]
@@ -86,19 +119,13 @@ def initialize(data, timeArray, decisionArray, edgeArray, flowArray):
 
     for k in data["distance_data"]:
         frm, to = k
-        dVar = LpVariable("x{}".format(curr_int), 0, 1, LpInteger)
+        dVar = LpVariable("x{}".format(curr_int), 0, 1, LpBinary)
         dEntry = (dVar, data["distance_data"][k])
         edgeArray.append(dEntry)
         var_mapping[dVar.name] = "{}, {}".format(frm, to)
         curr_int += 1
 
-        fVar = LpVariable("x{}".format(curr_int), 0, 1, LpInteger)
-        flowArray.append(fVar)
-        var_mapping[fVar.name] = "{}, {}".format(frm, to)
-        curr_int += 1
-            
-
-def addObjectiveFunction(data, timeArray, decisionArray, flowArray, lp):
+def addObjectiveFunction(data, timeArray, decisionArray, lp):
     # function to set the objective function
     tuples = []
     for (x, k, p) in timeArray:
@@ -107,13 +134,7 @@ def addObjectiveFunction(data, timeArray, decisionArray, flowArray, lp):
                 if (var_mapping[x.name] == place["name"]):
                     tuples.append((x, place["rating"]))
 
-    inBoundHome = []
-    for x in flowArray:
-        to = var_mapping[x.name].split(",")[1].strip()
-        if (to == "HOME"):
-            inBoundHome.append(x)
-
-    lp += sum(map(lambda x: x[0]*x[1], tuples)) + -1*sum(map(lambda x: x[0], decisionArray)) + sum(inBoundHome)
+    lp += sum(map(lambda x: x[0]*x[1], tuples)) + -1*sum(map(lambda x: x[0], decisionArray))
 
 def addBudgetConstraint(data, decisionArray, lp):
     # function to add the budget constraint
@@ -169,9 +190,7 @@ def addHomeConstraints(data, timeArray, decisionArray, lp):
             break
     
     lp += home_time == 0
-    lp += home_d >= 1
-    lp += home_d <= 1
-        
+    lp += home_d == 1
 
 def addDecisionConstraints(data, timeArray, decisionArray, lp):
     # function to add constraints defining decision variable behavior
@@ -186,46 +205,62 @@ def addDecisionConstraints(data, timeArray, decisionArray, lp):
         lp += y*x.lowBound - x <= 0
         lp += x - y*x.upBound <= 0
 
-def addFlowOutgoing(data, flowArray, lp):
-    homeVars = []
-    for x in flowArray:
-        frm = var_mapping[x.name].split(",")[0].strip()
-        if (frm == "HOME"):
-            homeVars.append(x)
-    
-    lp += (sum(homeVars) == 1)
+def collectSubtours(edgeArray):
+    tours = []
+    edgeCopy = [ k for k in edgeArray if value(k[0])] 
+   
+    for edge in edgeCopy:
 
-def addFlowConservation(data, flowArray, lp):
-    place_data = data["place_data"]
-    gdata = [ place_data[k]  for k in place_data ]
-    gdata = [ item for row in gdata for item in row ]
+        original = var_mapping[edge[0].name].split(",")[0].strip()
 
-    for place in gdata:
-        nodeName = place["name"]
+        last = var_mapping[edge[0].name].split(",")[1].strip()
 
-        inBound = []
-        outBound = []
+        inTour = False
+        for subtour in tours:
+            for node in subtour:
+                if original == node or last == node:
+                    inTour = True
+                    break
+            if inTour:
+                break
+                
+        if inTour:
+            continue
 
-        for x in flowArray:
+        subtour = []         
+
+        subtour.append(original)
+
+        while last != original:
+            seen = False
+            for e in edgeCopy:
+                frm = var_mapping[e[0].name].split(",")[0].strip()
+                to = var_mapping[e[0].name].split(",")[1].strip()
+
+                if frm == last:
+                    subtour.append(last)
+                    last = to
+                    seen = True
+                    break
+            if not seen:
+                print(tours)
+                print(subtour)
+                exit(0)
+
+        tours.append(subtour)
+    return tours
+
+def addSubtourConstraint(data, subtour, edgeArray, lp):    
+    inBound = []
+    outBound = []
+    for nodeName in subtour:
+        for (x, t) in edgeArray:
             frm = var_mapping[x.name].split(",")[0].strip()
             to = var_mapping[x.name].split(",")[1].strip()
-            
-            if frm == nodeName:
-                outBound.append(x)
-            elif to == nodeName:
-                inBound.append(x)
         
-        lp += (sum(inBound) - sum(outBound)) == 0
-
-def addFlowDecision(data, flowArray, decisionArray, lp):
-    tuples = []    
-
-    for x in flowArray:
-        fName = var_mapping[x.name]
-        for (y, k, p) in decisionArray:
-            if fName == var_mapping[y.name]:
-                tuples.add((x, y))
-                break
-
-    for (x, y) in tuples:
-        lp += (x - y == 0)
+            if to == nodeName and frm not in subtour:
+                inBound.append(x)
+            elif frm == nodeName and to not in subtour:
+                outBound.append(x)
+    nconst = sum(inBound) + sum(outBound) >= 2
+    lp += nconst
