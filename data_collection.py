@@ -9,10 +9,10 @@ PLACES_KEY = 'AIzaSyBD5fNjnMJ2vo_jWsz1x3fWXrcRb4TOAJ0'
 #MAPS_KEY = 'AIzaSyCPLE1prImwt1JXgbdtwfomzfiqr5bO1us'
 #MAPS_KEY = 'AIzaSyC-FkHdIYrMklmF2VwKJUgJU5xVoJEd0nw'
 #MAPS_KEY = 'AIzaSyDwa9wQN2Co8owZX6VaLRm9L9B7XQj6Svk'
-MAPS_KEY = 'AIzaSyCeRAPsVxCpJsUzWfJMxLAagpe4VeoL-8Y'
+#MAPS_KEY = 'AIzaSyCeRAPsVxCpJsUzWfJMxLAagpe4VeoL-8Y'
 #MAPS_KEY = 'AIzaSyDW3rShVk6rPbo8CzZ3UbJ5NJEAu2hVz-k'
 #MAPS_KEY = 'AIzaSyAWR52HC7ZOTkkXW0Clpzm0dT_NXo4g1vs'
-#MAPS_KEY = 'AIzaSyAp2R3_jPn_So3xm8ljiZUMSqbFCCMClYo'
+MAPS_KEY = 'AIzaSyAp2R3_jPn_So3xm8ljiZUMSqbFCCMClYo'
 
 def collectData(user_data):
     all_data = {}
@@ -93,6 +93,7 @@ def collectUserData(user_data):
     seen_places = []
 
     for keyword in user_data['keywords']:
+        key_weight = user_data["weights"][keyword]
         data = places_client.places_nearby(
             geocode_tup,
             min_price=0,
@@ -103,25 +104,47 @@ def collectUserData(user_data):
         )
         for p in data["results"]:
             placeStats = places_client.place(p["place_id"])
+
             rating = None 
             try:
                 rating = placeStats["result"]["rating"]
+                rating = rating * key_weight
             except KeyError:
                 rating = 0
 
-            trange = (0, 2359)
+            trange = (0, None)
             try:
                 opening_hours = placeStats["result"]["opening_hours"]["periods"]
                 for day in opening_hours:
                     if day["open"]["day"] == current_day:
-                        trange = (day["open"]["time"], day["close"]["time"])
+                        opening = int(day["open"]["time"])
+                        closing = None
+                        if (day["close"]["time"] is not None):
+                            closing = int(day["close"]["time"]) 
+                        trange = (opening, closing)
                         break
             except KeyError:
                 pass
 
+            timeOk = True
+            
+            if (trange[1] is not None):
+                n = datetime.datetime.now().time()
+                nowTime = (n.hour*100) +  n.minute
+                dur = user_data["time"]
+                durHour = dur / 3600
+                durMin = (dur - (durHour * 3600)) / 60
+                durr = (durHour * 100) + durMin
+                if trange[1] < trange[0]:
+                    if (nowTime + durr) >= 2400:
+                        durr = (nowTime + durr) % 2400
+                        if durr > trange[1]:
+                            timeOk = False
+                else:   
+                    timeOk = ((nowTime + durr) <= trange[1])
 
             geocode = geocode_client.geocode(placeStats["result"]["formatted_address"])
-            if (len(geocode) > 0):
+            if (len(geocode) > 0 and timeOk):
                 if ((p["name"], placeStats["result"]["formatted_address"]) not in seen_places):
                     geo_tup = (geocode[0]['geometry']['location']['lat'], geocode[0]['geometry']['location']['lng'])
 

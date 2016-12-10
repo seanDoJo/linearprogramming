@@ -12,10 +12,11 @@ def cascade(data):
     timeArray = []
     decisionArray = []
     edgeArray = []
+    keywordArray = []
 
     lp = LpProblem("value optimizer", LpMaximize)
     
-    initialize(data, timeArray, decisionArray, edgeArray)
+    initialize(data, timeArray, decisionArray, edgeArray, keywordArray)
 
     addBudgetConstraint(data, decisionArray, lp)   
    
@@ -27,13 +28,15 @@ def cascade(data):
 
     addDecisionConstraints(data, timeArray, decisionArray, lp) 
 
+    addKeywordConstraints(data, decisionArray, keywordArray, lp)
+
     addObjectiveFunction(data, timeArray, decisionArray, lp)
 
-    return (timeArray, decisionArray, edgeArray, lp)
+    return (timeArray, decisionArray, edgeArray, keywordArray, lp)
 
 def solve(data):
     
-    (timeArray, decisionArray, edgeArray, lp) = cascade(data) 
+    (timeArray, decisionArray, edgeArray, keywordArray, lp) = cascade(data) 
     
     status = lp.solve(GLPK(msg=0))
 
@@ -46,6 +49,7 @@ def solve(data):
         subtours = collectSubtours(edgeArray)
 
     print(LpStatus[status])
+    """
     place_data = data["place_data"]
     gdata = [ place_data[k]  for k in place_data ]
     gdata = [ item for row in gdata for item in row ]
@@ -56,6 +60,7 @@ def solve(data):
                 lastItem = item
                 break
         print("\t{}: {}, {}, {}".format(var_mapping[x.name], value(x), lastItem["rating"], lastItem["price_level"]))
+    """
 
     chosenEdges = []
     
@@ -75,7 +80,17 @@ def solve(data):
     if len(chosenEdges) > 0:
         print("HOME")
         while last != "HOME":
-            print(last) 
+            last_t = None
+            for (y, k, p) in timeArray:
+                if var_mapping[y.name] == last:
+                    last_t = y
+                    break
+            last_d = None
+            for (y, k, p) in decisionArray:
+                if var_mapping[y.name] == last:
+                    last_d = y
+                    break
+            print("{}: time: {}, place decision: {}".format(last, value(last_t), value(last_d))) 
             for x in chosenEdges:
                 if x[0] == last:
                     last = x[1]
@@ -88,16 +103,22 @@ def solve(data):
             
     print("Total: {}".format(value(lp.objective)))
 
-def initialize(data, timeArray, decisionArray, edgeArray):
+def initialize(data, timeArray, decisionArray, edgeArray, keywordArray):
     # function to initialize the columns and rows of the problem
     global var_mapping
+    curr_int = 0
     place_data = data["place_data"]
+    user_data = data["user_data"]
+    for keyword in user_data["strictness"]:
+        (equality, value) = user_data["strictness"][keyword]
+        kEntry = (keyword, equality, value)
+        keywordArray.append(kEntry)
+
     gdata = [ place_data[k]  for k in place_data ]
     gdata = [ item for row in gdata for item in row ]
     numberCols = len(data["distance_data"]) + 2*len(gdata)
     
     # define time variables for places
-    curr_int = 0
     for keyword in data["place_data"]:
         lb = time_constraints[keyword]
         ub = data["user_data"]["bounds"][keyword]
@@ -170,10 +191,6 @@ def addTimeConstraint(data, timeArray, edgeArray, lp):
      
     
 
-def addStrictConstraint(data, lp):
-    # function to enforce a category of every kind
-    pass
-
 def addHomeConstraints(data, timeArray, decisionArray, lp):
     # function to add constraints about the Home node
     home_time = None
@@ -198,12 +215,15 @@ def addDecisionConstraints(data, timeArray, decisionArray, lp):
     for (x, k, p) in timeArray:
         for (y, l, q) in decisionArray:
             if (var_mapping[x.name] == var_mapping[y.name]):
-                tuples.append((x, y))
+                tuples.append((x, y, k))
                 break
 
-    for (x, y) in tuples:
-        lp += y*x.lowBound - x <= 0
-        lp += x - y*x.upBound <= 0
+    for (x, y, k) in tuples: 
+        lowerBound = time_constraints[k]
+        c1 = y*lowerBound - x <= 0
+        lp += c1
+        c2 = x - y*x.upBound <= 0
+        lp += c2
 
 def collectSubtours(edgeArray):
     tours = []
@@ -264,3 +284,22 @@ def addSubtourConstraint(data, subtour, edgeArray, lp):
                 outBound.append(x)
     nconst = sum(inBound) + sum(outBound) >= 2
     lp += nconst
+
+def addKeywordConstraints(data, decisionArray, keywordArray, lp):
+    for (keyword, equality, value) in keywordArray:
+        associated_vars = []
+        for (x, k, p) in decisionArray:
+            if k == keyword:
+                associated_vars.append(x)
+        if (len(associated_vars) > 0):
+            if equality == "EQ":
+                lp += sum(associated_vars)  == value
+            elif equality == "GTE":
+                lp += sum(associated_vars)  >= value
+            elif equality == "LTE":
+                lp += sum(associated_vars)  <= value
+        else:
+            badVar = LpVariable("bad", 0, None, LpInteger)
+            lp += badVar <= 0
+            lp += badVar >= 1
+            return
