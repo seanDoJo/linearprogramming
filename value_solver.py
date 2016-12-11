@@ -100,9 +100,25 @@ def solve(data):
                 if place["name"] == last:
                     pla = place
                     break
+            time_s = value(last_t)
+            time_h = int(time_s) // 3600
+            time_m = (int(time_s) - (time_h * 3600)) // 60
+            tstring = None
+            if time_h:
+                if time_m:
+                    tstring = "{} hours, {} minutes".format(time_h, time_m)
+                else:
+                    tstring = "{} hours".format(time_h)
+            else:
+                tstring = "{} minutes".format(time_m)
+
             rating = pla["original_rating"]
             budget = "$" * (pla["price_level"])
-            pitem = "{} ({}), Rating: {}, Price: {}".format(last, key, rating, budget)
+            website = pla["website"]
+            last_s = last
+            if website:
+                last_s = "<a href={}>{}</a>".format(website, last_s)
+            pitem = "{} ({}), Rating: {}, Price: {}, Spend {} here".format(last_s, key, rating, budget, tstring)
             final_path.append(pitem)
             for x in chosenEdges:
                 if x[0] == last:

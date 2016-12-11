@@ -8,9 +8,9 @@ PLACES_KEY = 'AIzaSyBD5fNjnMJ2vo_jWsz1x3fWXrcRb4TOAJ0'
 #MAPS_KEY = 'AIzaSyCPzQ7BurH64jXtsgwP7c7VQBK8LQPF5MY'
 #MAPS_KEY = 'AIzaSyCPLE1prImwt1JXgbdtwfomzfiqr5bO1us'
 #MAPS_KEY = 'AIzaSyC-FkHdIYrMklmF2VwKJUgJU5xVoJEd0nw'
-MAPS_KEY = 'AIzaSyDwa9wQN2Co8owZX6VaLRm9L9B7XQj6Svk'
+#MAPS_KEY = 'AIzaSyDwa9wQN2Co8owZX6VaLRm9L9B7XQj6Svk'
 #MAPS_KEY = 'AIzaSyCeRAPsVxCpJsUzWfJMxLAagpe4VeoL-8Y'
-#MAPS_KEY = 'AIzaSyDW3rShVk6rPbo8CzZ3UbJ5NJEAu2hVz-k'
+MAPS_KEY = 'AIzaSyDW3rShVk6rPbo8CzZ3UbJ5NJEAu2hVz-k'
 #MAPS_KEY = 'AIzaSyAWR52HC7ZOTkkXW0Clpzm0dT_NXo4g1vs'
 #MAPS_KEY = 'AIzaSyAp2R3_jPn_So3xm8ljiZUMSqbFCCMClYo'
 
@@ -88,6 +88,7 @@ def collectUserData(user_data):
         'original_rating': 0,
         'address': home_addr,
         'geo_loc': geocode_tup,
+        'website': None,
     }
     places["HOME"].append(homeItem)
 
@@ -108,6 +109,7 @@ def collectUserData(user_data):
 
             rating = None 
             orig_rating = None
+            website = None
             try:
                 rating = placeStats["result"]["rating"]
                 orig_rating = rating
@@ -115,6 +117,10 @@ def collectUserData(user_data):
             except KeyError:
                 rating = 0
                 orig_rating = 0
+            try:
+                website = placeStats["result"]["website"]
+            except KeyError:
+                website = None
 
             trange = (0, None)
             try:
@@ -160,6 +166,7 @@ def collectUserData(user_data):
                         'original_rating': orig_rating,
                         'address': placeStats["result"]["formatted_address"],
                         'geo_loc': geo_tup,
+                        'website': website,
                     }
                     places[keyword].append(newItem)
                     seen_places.append((p["name"], placeStats["result"]["formatted_address"]))
