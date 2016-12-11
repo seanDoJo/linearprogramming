@@ -1,3 +1,10 @@
+"""
+Authors: Sean Donohoe and Kyle Wiese
+
+An implementation to collect place data based on specified user constraints from the googlemaps API
+"""
+
+
 import googlemaps
 import datetime
 

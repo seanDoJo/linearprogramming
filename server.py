@@ -1,3 +1,9 @@
+"""
+Authors: Sean Donohoe
+
+A flask server for interfacing the linear program with users
+"""
+
 from value_solver import solve
 from data_collection import collectData
 from flask import Flask, request, send_file, jsonify

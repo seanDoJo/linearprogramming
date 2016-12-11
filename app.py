@@ -1,3 +1,9 @@
+"""
+Authors: Sean Donohoe and Kyle Wiese
+
+A class for generating the main index.html page
+"""
+
 from bounds import time_constraints
 from html_text import *
 import math

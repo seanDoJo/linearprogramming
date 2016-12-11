@@ -1,3 +1,9 @@
+"""
+Authors: Sean Donohoe and Kyle Wiese
+
+Lower bounds on time for each keyword
+"""
+
 time_constraints = {
     'restaurant': 1200,
     'cafe': 300,

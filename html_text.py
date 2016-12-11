@@ -1,3 +1,9 @@
+"""
+Authors: Sean Donohoe and Kyle Wiese
+
+String templates for index.html
+"""
+
 keywordTag = """
 <div class="form-group">
     <h3 style="display: inline; margin-right: 10px">{}</h3><input onclick="checkUpdate('{}')" type="checkbox" value="{}" name="{}-selected"><br>

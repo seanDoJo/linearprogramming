@@ -1,11 +1,13 @@
+"""
+Authors: Sean Donohoe and Kyle Wiese
+
+An implementation for composing and solving the linear program, using the PuLP API
+"""
+
+
 from pulp import *
 from bounds import time_constraints
 
-"""
-
-tfinley.net/software/pyglpk/discussion.html
-
-"""
 var_mapping = {}
 
 def cascade(data):
