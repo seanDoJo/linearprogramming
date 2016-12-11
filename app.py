@@ -42,10 +42,11 @@ class MyApp():
         hours = math.ceil(lowerSeconds / float(3600))
         options = []
         for x in range(hours, 13):
+            hoursToSeconds = x * 3600
             if x == hours:
-                optionTag = keywordHourOptionTagSelected.format(x, x)
+                optionTag = keywordHourOptionTagSelected.format(hoursToSeconds, x)
             else:
-                optionTag = keywordHourOptionTag.format(x, x)
+                optionTag = keywordHourOptionTag.format(hoursToSeconds, x)
             options.append(optionTag)
 
         return options

@@ -77,20 +77,33 @@ def solve(data):
             chosenEdges.remove(x)
             break
 
+    final_path = []
     if len(chosenEdges) > 0:
         print("HOME")
+        final_path.append(data["user_data"]["start_address"])
         while last != "HOME":
             last_t = None
+            key = None
             for (y, k, p) in timeArray:
                 if var_mapping[y.name] == last:
                     last_t = y
+                    key = k
                     break
             last_d = None
             for (y, k, p) in decisionArray:
                 if var_mapping[y.name] == last:
                     last_d = y
                     break
-            print("{}: time: {}, place decision: {}".format(last, value(last_t), value(last_d))) 
+            print("{}: time: {}, place decision: {}".format(last, value(last_t), value(last_d)))
+            pla = None
+            for place in data["place_data"][key]:
+                if place["name"] == last:
+                    pla = place
+                    break
+            rating = pla["original_rating"]
+            budget = "$" * (pla["price_level"])
+            pitem = "{} ({}), Rating: {}, Price: {}".format(last, key, rating, budget)
+            final_path.append(pitem)
             for x in chosenEdges:
                 if x[0] == last:
                     last = x[1]
@@ -98,10 +111,15 @@ def solve(data):
                     break
 
         print("HOME")
+        final_path.append(data["user_data"]["start_address"])
     print(chosenEdges)
     print(len(chosenEdges))
             
     print("Total: {}".format(value(lp.objective)))
+    rdata = {
+        "path": final_path,
+    }
+    return rdata
 
 def initialize(data, timeArray, decisionArray, edgeArray, keywordArray):
     # function to initialize the columns and rows of the problem
