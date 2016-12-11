@@ -1,5 +1,9 @@
 # Optimal Location Based Itinerary: CSCI 5654 Final Project
 
+## Authors
+### Sean Donohoe
+### Kyle Wiese
+
 ## Description
 This package contains a linear program which solves for an optimal "valued" route through a set of locations taken from the Google Places API. It attempts to maximize the value of a particular trip, where the value for visiting any location is the amount of time spent at this location, multiplied by it's average rating. The user may specify specific categories of places to visit, an amount of time available to visit various locations, and more specific constraints for each category of place, such as visiting exactly two places which fall under a specific category. This relies on subtour elimination to find an optimal tour from the specified starting address, through a set of locations, and returning home, all while maintaining time, budget, and category constraints.
 
