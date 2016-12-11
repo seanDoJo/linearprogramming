@@ -1,6 +1,6 @@
 # Optimal Location Based Itinerary: CSCI 5654 Final Project
 
-### Install
+## Install
 #### Dependencies:
   * [PuLP](http://pythonhosted.org/PuLP/): ```pip3 install pulp```
   * GLPK: ```sudo apt-get install python-glpk glpk-utils```
