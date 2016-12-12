@@ -27,5 +27,5 @@ The only code which might reflect implementations found on the internet is the i
   * We only consider travel by car; and therefore, include an automatic time addition of 30 seconds to travel from any point to any other point.
   
 #### Linear Program:
-![Linear Program](https://github.com/seanDoJo/linearprogramming/blob/master/Linear%20Programming.png)
+![Linear Program](https://github.com/seanDoJo/linearprogramming/blob/master/Linear%20Program.png)
 
