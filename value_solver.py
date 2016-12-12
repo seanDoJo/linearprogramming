@@ -32,7 +32,7 @@ def cascade(data):
 
     addKeywordConstraints(data, decisionArray, keywordArray, lp)
 
-    addObjectiveFunction(data, timeArray, decisionArray, lp)
+    addObjectiveFunction(data, timeArray, decisionArray, edgeArray, lp)
 
     return (timeArray, decisionArray, edgeArray, keywordArray, lp)
 
@@ -182,7 +182,7 @@ def initialize(data, timeArray, decisionArray, edgeArray, keywordArray):
         var_mapping[dVar.name] = "{}, {}".format(frm, to)
         curr_int += 1
 
-def addObjectiveFunction(data, timeArray, decisionArray, lp):
+def addObjectiveFunction(data, timeArray, decisionArray, edgeArray, lp):
     # function to set the objective function
     tuples = []
     for (x, k, p) in timeArray:
@@ -191,7 +191,7 @@ def addObjectiveFunction(data, timeArray, decisionArray, lp):
                 if (var_mapping[x.name] == place["name"]):
                     tuples.append((x, place["rating"]))
 
-    lp += sum(map(lambda x: x[0]*x[1], tuples)) + -1*sum(map(lambda x: x[0], decisionArray))
+    lp += sum(map(lambda x: x[0]*x[1], tuples)) + -1*sum(map(lambda x: x[0], decisionArray)) + -1*sum(map(lambda x: x[0]*x[1], edgeArray))
 
 def addBudgetConstraint(data, decisionArray, lp):
     # function to add the budget constraint
