@@ -335,7 +335,9 @@ def addKeywordConstraints(data, decisionArray, keywordArray, lp):
             elif equality == "LTE":
                 lp += sum(associated_vars)  <= value
         else:
-            badVar = LpVariable("bad", 0, None, LpInteger)
-            lp += badVar <= 0
-            lp += badVar >= 1
-            return
+            if equality != "LTE":
+                badVar = LpVariable("bad", 0, None, LpInteger)
+                lp += badVar <= 0
+                lp += badVar >= 1
+                print("adding infeasible route constraint")
+                return
