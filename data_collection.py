@@ -5,72 +5,173 @@ An implementation to collect place data based on specified user constraints from
 """
 
 
-import googlemaps
 import datetime
+from keys import KeyManager
+import asyncio
+import logging
+import traceback
+import googlemaps
+import time
 
-
-PLACES_KEY = 'AIzaSyDg1qhBCO1I7heUbEfXKM4OSNO_EG7P-mw'
-PLACES_KEY = 'AIzaSyBD5fNjnMJ2vo_jWsz1x3fWXrcRb4TOAJ0'
-
-#MAPS_KEY = 'AIzaSyCPzQ7BurH64jXtsgwP7c7VQBK8LQPF5MY'
-#MAPS_KEY = 'AIzaSyCPLE1prImwt1JXgbdtwfomzfiqr5bO1us'
-#MAPS_KEY = 'AIzaSyC-FkHdIYrMklmF2VwKJUgJU5xVoJEd0nw'
-#MAPS_KEY = 'AIzaSyDwa9wQN2Co8owZX6VaLRm9L9B7XQj6Svk'
-MAPS_KEY = 'AIzaSyCeRAPsVxCpJsUzWfJMxLAagpe4VeoL-8Y'
-#MAPS_KEY = 'AIzaSyDW3rShVk6rPbo8CzZ3UbJ5NJEAu2hVz-k'
-#MAPS_KEY = 'AIzaSyAWR52HC7ZOTkkXW0Clpzm0dT_NXo4g1vs'
-#MAPS_KEY = 'AIzaSyAp2R3_jPn_So3xm8ljiZUMSqbFCCMClYo'
+km = KeyManager()
+event_loop = asyncio.get_event_loop()
 
 def collectData(user_data):
     all_data = {}
-    place_data = collectUserData(user_data)
-    distance_data = collectMapData(place_data)
+    try:
+        place_data = event_loop.run_until_complete(collectUserData(user_data))
+        distance_data = event_loop.run_until_complete(collectMapData(place_data))
 
-    all_data["user_data"] = user_data
-    all_data["place_data"] = place_data
-    all_data["distance_data"] = distance_data
+        all_data["user_data"] = user_data
+        all_data["place_data"] = place_data
+        all_data["distance_data"] = distance_data
+    except Exception as e:
+        logging.error(traceback.format_exc())
+    finally:
+        return all_data
 
-    return all_data
+#async def generateMapData(origins, destinations, j, frm, to, maps_key):
+def generateMapData(origins, destinations, names, maps_key):
+    client = googlemaps.Client(key=maps_key)
+    d_data = {}
+    dest_data = client.distance_matrix(
+        origins,
+        destinations,
+        mode="walking",
+    )
+    o_names = [ (n, a, False) for n, a in names ]
+    d_names = [ (n, a, False) for n, a in names ]
 
-def collectMapData(place_data):
+    o_addr = []
+    for addr in origins:
+        for k in range(len(o_names)):
+            n, a, v = o_names[k]
+            if a == addr and not v:
+                o_addr.append(n)
+                o_names[k] = (n, a, True)
+                break
+    d_addr = []
+    for addr in destinations:
+        for k in range(len(d_names)):
+            n, a, v = d_names[k]
+            if a == addr and not v:
+                d_addr.append(n)
+                d_names[k] = (n, a, True)
+                break
+
+    for i in range(len(dest_data["rows"])):
+        fromName = o_addr[i]
+        for j in range(len(dest_data["rows"][i]["elements"])):
+            toName = d_addr[j]
+            if fromName != toName:
+                d_data[(fromName, toName)] = 30 + dest_data["rows"][i]["elements"][j]["duration"]["value"]
+    return d_data
+
+async def collectMapData(place_data):
     distance_data = {}
 
     glob_place_data = [ place_data[k] for k in place_data ]
     glob_place_data = [ (item["name"], item["address"], item["geo_loc"]) for row in glob_place_data for item in row ]
-    maps_client = googlemaps.Client(key=MAPS_KEY)
+    glob_place_data.sort(key=lambda tup: tup[0])
+    print("found {} places".format(len(glob_place_data)))
 
-    frm = []
-    to = []
-    origins = []
-    destinations = []
+    origins = [ a for n, a, l in glob_place_data ]
+    destinations = [ a for n, a, l in glob_place_data ] 
+    names = [ (n, a) for (n, a, l) in glob_place_data ]
 
-    for i in range(len(glob_place_data)):
-        name1, address1, loc1 = glob_place_data[i]
-        for j in range(i+1, len(glob_place_data)):
-                name2, address2, loc2 = glob_place_data[j]
-                to.append(name1)
-                frm.append(name2)
-                origins.append(address1)
-                destinations.append(address2)
-
-    for j in range(0, len(origins), 10):
-        print(len(origins[j:min(j+10, len(origins))]))
-        dest_data = maps_client.distance_matrix(
-            origins[j:min(j+10, len(origins))], 
-            destinations[j:min(j+10, len(origins))]
-        )
-
-        for i in range(len(dest_data["rows"])):
-            d = dest_data["rows"][i]
-            fromName = frm[j+i]
-            toName = to[j+i]
-            distance_data[(fromName, toName)] = 30 +  d["elements"][0]["duration"]["value"]
-            distance_data[(toName, fromName)] = 30 +  d["elements"][0]["duration"]["value"]
+    placedata = []
+    loop = asyncio.get_event_loop()
+    for i in range(0, len(origins), 10):
+        for j in range(0, len(origins), 10):
+            print(len(origins[i:min(i+10, len(origins))]))
+            placedata.append(loop.run_in_executor(
+                None,
+                generateMapData,
+                origins[i:min(i+10, len(origins))], 
+                destinations[j:min(j+10, len(origins))],
+                names,
+                km.get_maps_key(),
+            ))
+#    for n in asyncio.as_completed(placedata):
+    for n in placedata:
+        res = await n
+        for k in res:
+            distance_data[k] = res[k] 
     return distance_data
 
-
-def collectUserData(user_data):
+#async def generateUserData(p, current_day, key_weight, user_data, maps_key, places_key):
+def generateUserData(p, current_day, key_weight, user_data, maps_key, places_key):
+    maps_client = googlemaps.Client(key=maps_key)
+    places_client = googlemaps.Client(key=places_key)
     
+    place_grab = time.time()
+    placeStats = places_client.place(p["place_id"])
+    print("place grab: {}".format((time.time() - place_grab)))
+		
+    rating = None 
+    orig_rating = None
+    website = None
+    try:
+        rating = placeStats["result"]["rating"]
+        orig_rating = rating
+        rating = rating * key_weight
+    except KeyError:
+        rating = 1
+        orig_rating = 0
+    try:
+        website = placeStats["result"]["website"]
+    except KeyError:
+        website = None
+    trange = (0, None)
+    try:
+        opening_hours = placeStats["result"]["opening_hours"]["periods"]
+        for day in opening_hours:
+            if day["open"]["day"] == current_day:
+                opening = int(day["open"]["time"])
+                closing = None
+                if (day["close"]["time"] is not None):
+                    closing = int(day["close"]["time"]) 
+                trange = (opening, closing)
+                break
+    except KeyError:
+        pass
+    timeOk = True
+            
+    if (trange[1] is not None):
+        n = datetime.datetime.now().time()
+        nowTime = (n.hour*100) +  n.minute
+        dur = user_data["time"]
+        durHour = dur / 3600
+        durMin = (dur - (durHour * 3600)) / 60
+        durr = (durHour * 100) + durMin
+        if trange[1] < trange[0]:
+            if (nowTime + durr) >= 2400:
+                durr = (nowTime + durr) % 2400
+                if durr > trange[1]:
+                    timeOk = False
+        else:   
+            timeOk = ((nowTime + durr) <= trange[1])
+
+    geocode_grab = time.time()
+    geocode = maps_client.geocode(placeStats["result"]["formatted_address"])
+    print("geocode grab: {}".format((time.time() - geocode_grab)))
+
+    if (len(geocode) > 0 and timeOk):
+        geo_tup = (geocode[0]['geometry']['location']['lat'], geocode[0]['geometry']['location']['lng'])
+        newItem = {
+            'name':  p["name"]+" ("+placeStats["result"]["formatted_address"].replace(",", "")+")",
+            'opening_hours':  trange,
+            'price_level':  p["price_level"],
+            'rating': rating,
+            'original_rating': orig_rating,
+            'address': placeStats["result"]["formatted_address"],
+            'geo_loc': geo_tup,
+            'website': website,
+        }
+        return newItem
+    return None
+
+async def collectUserData(user_data):
     current_day = datetime.datetime.today().weekday()
     if current_day == 6:
         current_day = 0
@@ -79,13 +180,11 @@ def collectUserData(user_data):
     
     places = {keyword: [] for keyword in user_data['keywords'] + ["HOME"]}
 
-    places_client = googlemaps.Client(key=PLACES_KEY)
 
-    geocode_client = googlemaps.Client(key=MAPS_KEY)
-    geocode = geocode_client.geocode(user_data['start_address'])
+    geocode = km.geocode(user_data['start_address'])
     
     geocode_tup = (geocode[0]['geometry']['location']['lat'], geocode[0]['geometry']['location']['lng'])
-    da = geocode_client.reverse_geocode(geocode_tup)
+    da = km.reverse_geocode(geocode_tup)
     home_addr = da[0]["formatted_address"]
     homeItem = {
         'name':  "HOME",
@@ -103,7 +202,7 @@ def collectUserData(user_data):
 
     for keyword in user_data['keywords']:
         key_weight = user_data["weights"][keyword]
-        data = places_client.places_nearby(
+        data = km.places_nearby(
             geocode_tup,
             min_price=0,
             max_price=4,
@@ -111,72 +210,22 @@ def collectUserData(user_data):
             open_now=True,
             radius=user_data['radius'],
         )
-        for p in data["results"]:
-            placeStats = places_client.place(p["place_id"])
-
-            rating = None 
-            orig_rating = None
-            website = None
-            try:
-                rating = placeStats["result"]["rating"]
-                orig_rating = rating
-                rating = rating * key_weight
-            except KeyError:
-                rating = 0
-                orig_rating = 0
-            try:
-                website = placeStats["result"]["website"]
-            except KeyError:
-                website = None
-
-            trange = (0, None)
-            try:
-                opening_hours = placeStats["result"]["opening_hours"]["periods"]
-                for day in opening_hours:
-                    if day["open"]["day"] == current_day:
-                        opening = int(day["open"]["time"])
-                        closing = None
-                        if (day["close"]["time"] is not None):
-                            closing = int(day["close"]["time"]) 
-                        trange = (opening, closing)
-                        break
-            except KeyError:
-                pass
-
-            timeOk = True
-            
-            if (trange[1] is not None):
-                n = datetime.datetime.now().time()
-                nowTime = (n.hour*100) +  n.minute
-                dur = user_data["time"]
-                durHour = dur / 3600
-                durMin = (dur - (durHour * 3600)) / 60
-                durr = (durHour * 100) + durMin
-                if trange[1] < trange[0]:
-                    if (nowTime + durr) >= 2400:
-                        durr = (nowTime + durr) % 2400
-                        if durr > trange[1]:
-                            timeOk = False
-                else:   
-                    timeOk = ((nowTime + durr) <= trange[1])
-
-            geocode = geocode_client.geocode(placeStats["result"]["formatted_address"])
-            if (len(geocode) > 0 and timeOk):
-                if ((p["name"], placeStats["result"]["formatted_address"]) not in seen_places):
-                    geo_tup = (geocode[0]['geometry']['location']['lat'], geocode[0]['geometry']['location']['lng'])
-
-                    newItem = {
-                        'name':  p["name"]+" ("+placeStats["result"]["formatted_address"].replace(",", "")+")",
-                        'opening_hours':  trange,
-                        'price_level':  p["price_level"],
-                        'rating': rating,
-                        'original_rating': orig_rating,
-                        'address': placeStats["result"]["formatted_address"],
-                        'geo_loc': geo_tup,
-                        'website': website,
-                    }
-                    places[keyword].append(newItem)
-                    seen_places.append((p["name"], placeStats["result"]["formatted_address"]))
-        #places[keyword] = places[keyword][:5]
-
+        """
+        placedata = [ generateUserData(p, current_day, key_weight, user_data, km.get_maps_key(), km.get_places_key()) for p in data["results"] ]
+        for n in asyncio.as_completed(placedata):
+            res = await n
+            if res and (res["name"], res["address"]) not in seen_places:
+                places[keyword].append(res)
+                seen_places.append((res["name"], res["address"]))
+        """
+        loop = asyncio.get_event_loop()
+        placedata = [
+            loop.run_in_executor(None, generateUserData, p, current_day, key_weight, user_data, km.get_maps_key(), km.get_places_key())
+            for p in data["results"]
+        ]
+        for n in placedata:
+            res = await n
+            if res and (res["name"], res["address"]) not in seen_places:
+                places[keyword].append(res)
+                seen_places.append((res["name"], res["address"]))
     return places

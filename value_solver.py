@@ -50,20 +50,7 @@ def solve(data):
         status = lp.solve(GLPK(msg=0))
         subtours = collectSubtours(edgeArray)
 
-    print(LpStatus[status])
-    """
-    place_data = data["place_data"]
-    gdata = [ place_data[k]  for k in place_data ]
-    gdata = [ item for row in gdata for item in row ]
-    for (x, k, p) in timeArray:
-        lastItem = None
-        for item in gdata:
-            if item["name"] == var_mapping[x.name]:
-                lastItem = item
-                break
-        print("\t{}: {}, {}, {}".format(var_mapping[x.name], value(x), lastItem["rating"], lastItem["price_level"]))
-    """
-
+    print(LpStatus[status]) 
     chosenEdges = []
     
     for (e, t) in edgeArray:
@@ -80,9 +67,11 @@ def solve(data):
             break
 
     final_path = []
+    final_addresses = []
     if len(chosenEdges) > 0:
         print("HOME")
-        final_path.append(data["user_data"]["start_address"])
+        final_path.append("Home ({})".format(data["user_data"]["start_address"]))
+        final_addresses.append(data["user_data"]["start_address"])
         while last != "HOME":
             last_t = None
             key = None
@@ -122,6 +111,7 @@ def solve(data):
                 last_s = "<a href={}>{}</a>".format(website, last_s)
             pitem = "{} ({}), Rating: {}, Price: {}, Spend {} here".format(last_s, key, rating, budget, tstring)
             final_path.append(pitem)
+            final_addresses.append(pla["address"])
             for x in chosenEdges:
                 if x[0] == last:
                     last = x[1]
@@ -129,13 +119,15 @@ def solve(data):
                     break
 
         print("HOME")
-        final_path.append(data["user_data"]["start_address"])
+        final_path.append("Home ({})".format(data["user_data"]["start_address"]))
+        final_addresses.append(data["user_data"]["start_address"])
     print(chosenEdges)
-    print(len(chosenEdges))
+    print(final_addresses)
             
     print("Total: {}".format(value(lp.objective)))
     rdata = {
         "path": final_path,
+        "addresses": final_addresses,
     }
     return rdata
 

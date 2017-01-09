@@ -31,7 +31,7 @@ keywordTag = """
             <option value="NONE" selected>Unlimited</option>
             <option value="EQ"> = </option>
             <option value="LTE"> &le; </option>
-            <option vlaue="GTE"> &ge; </option>
+            <option value="GTE"> &ge; </option>
         </select>
         <input type="number" class="form-control" style="display:inline; width:10%" name="{}-strictness" value="0" min="0" step="1"/>
     </div>
@@ -66,6 +66,13 @@ indexBegin = """
                     e.style.display = 'block'
             }
         </script>
+
+	<script>
+		var map = null;
+		var start = null;
+		var geocoder = null;
+	</script>
+
         
         <script>
             $(document).ready(function () {
@@ -80,7 +87,8 @@ indexBegin = """
                         dataType: 'json',
                         success: function(data) {
                             document.getElementById("loading").style.display = 'none';
-                            document.getElementById("results").style.display = 'block';
+			    document.getElementById("results").style.display = 'block';
+			    google.maps.event.trigger(map, 'resize');
                             $.each(data, function(k, v) {
                                 if (k == "path"){
                                     if (data[k].length > 0) {
@@ -92,13 +100,50 @@ indexBegin = """
                                         document.getElementById("results").style.display = 'none';
                                         document.getElementById("nopath").style.display = 'block';
                                     }
-                                }
+                                } else if (k == "addresses"){
+					if (data[k].length > 0) {
+						var bounds = new google.maps.LatLngBounds();
+						var numCalls = data[k].length;
+						for (var i in data[k]) {
+							var entry = data[k][i];
+							geocoder.geocode({'address': entry}, function(results, status) {
+								if (status == 'OK'){
+									var m = new google.maps.Marker({
+										map: map,
+										position: results[0].geometry.location
+									});
+									bounds.extend(results[0].geometry.location);
+									--numCalls;
+									if(numCalls <= 0) {
+										map.setCenter(bounds.getCenter());
+										google.maps.event.addListenerOnce(map, 'bounds_changed', function(event) {
+											this.setZoom(map.getZoom()-1);
+											if (this.getZoom() > 15) {
+												this.setZoom(15);
+											}
+										});
+										map.fitBounds(bounds);
+									}
+								} else {
+									alert("Geocoding failed!");
+								}
+							});
+						}
+					}
+				}
                             });
                         }
                     });
                 });
             });
         </script>
+	<style>
+		html, body {
+			height: 100%;
+			margin: 0;
+			padding: 0;
+		}
+	</style>
     </head>
 
     <body>
@@ -117,7 +162,7 @@ indexBegin = """
             <form id="pathdata">
                 <div class="form-group">
                     <h4>Starting Address</h4>
-                    <input class="form-control" type="text" style="width:50%" name="start_address" placeholder="Starting Address (E.g. 1769 Rockies Ct, Lafayette, CO)"><br>
+                    <input class="form-control" type="text" id="addr" style="width:50%" name="start_address" placeholder="Starting Address (E.g. 1769 Rockies Ct, Lafayette, CO)"><br>
                     <h4>Search Radius</h4>
                     <select class="form-control" name="searchRadius" style="width: 50%">
                         <option value=805 selected>0.5 miles</option>
@@ -149,7 +194,7 @@ indexBegin = """
                         <option value=0>0</option>
                         <option value=1800 selected>30</option> 
                     </select> 
-                    <o style="display:inline; margin: 5px">minutes</p>
+                    <p style="display:inline; margin: 5px">minutes</p>
                 </div>
                 <h4>Keywords</h4>
                 <div style="margin-left: 10%">
@@ -167,22 +212,37 @@ indexEnd = """
             <h4 style="text-align:center; display:inline">Calculating your adventure...</h4>
             <i class="fa fa-spinner fa-spin" style="font-size:24px; color: blue"></i>
         </div>
-        <div class="container" id="results" style="display: none">
+        <div class="container" id="results" style="display: none; height: 100%; width: 100%">
             <div class="jumbotron">
 	        <h1>Maximize Your Day's Value</h1>      
 	    </div>
             <h1 class="display-3">Your Route</h1>
-            <div style="width:80%; margin: 0 auto; border-radius: 5px; overflow: scroll; background-color: #666666">
-                <ol id="finalpath" class="list-group" style="margin: 10px">
-                </ol>
-            </div>
-        </div>
+	    <div style="border-radius: 5px; overflow: scroll; background-color: #666666; display: inline; width: 48%; float: left">
+	    	<ol id="finalpath" class="list-group" style="margin: 10px">
+		</ol>
+	    </div>
+	    <div id="map" style="display: inline; float: right; height: 50%; width: 50%"></div>
+       </div>
        <div class="container" id="nopath" style="display: none">
             <div class="jumbotron">
 	        <h1>Maximize Your Day's Value</h1>      
 	    </div>
             <h3 style="margin: 0 auto; width: 50%">Sorry, we couldn't find a route for you!</h3>
         </div>
+	<script>
+		function initMap() {
+			geocoder = new google.maps.Geocoder();
+			map = new google.maps.Map(document.getElementById('map'), {
+				zoom: 9,
+				center: {lat: 41.85, lng: -87.65},
+			});
+			var directionsDisplay = new google.maps.DirectionsRenderer;	
+			directionsDisplay.setMap(map)
+		}
+	</script>
+	<script async defer
+	src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAwLw6rb6ifekvYt1vKA2jFvgG9AMCskRQ&callback=initMap">
+	</script>
    </body>
 </html>
 """
