@@ -1,4 +1,4 @@
-# Optimal Location Based Itinerary: CSCI 5654 Final Project
+# Optimal Location Based Itinerary
 
 ## Authors
 ### Sean Donohoe
@@ -25,7 +25,4 @@ The only code which might reflect implementations found on the internet is the i
     * Due to these API call limitations, we make the underlying assumption that the path time from A to B is the same as B to A. This introduces an element of randomness from run to run based on the order Google returns places.
   * We only search through places that are open and will remain open for the time period specified.
   * We only consider travel by car; and therefore, include an automatic time addition of 30 seconds to travel from any point to any other point.
-  
-#### Linear Program:
-![Linear Program](https://github.com/seanDoJo/linearprogramming/blob/master/Linear%20Program.png)
 
