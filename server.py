@@ -69,7 +69,11 @@ def solveRoute():
 
         data = collectData(d)
         print("DONE COLLECTING DATA")
-        path_data = solve(data)
+        try:
+            path_data = solve(data)
+        except:
+            edata = {"path": [], "addresses": []}
+            return jsonify(**edata)
 
         return jsonify(**path_data)
     else:

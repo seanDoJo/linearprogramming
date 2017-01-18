@@ -182,6 +182,7 @@ async def collectUserData(user_data):
 
 
     geocode = km.geocode(user_data['start_address'])
+    print(geocode)
     
     geocode_tup = (geocode[0]['geometry']['location']['lat'], geocode[0]['geometry']['location']['lng'])
     da = km.reverse_geocode(geocode_tup)

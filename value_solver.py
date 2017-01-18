@@ -45,6 +45,7 @@ def solve(data):
     
     subtours = collectSubtours(edgeArray)
     while len(subtours) > 1:
+        print(len(subtours))
         for subtour in subtours:
             addSubtourConstraint(data, subtour, edgeArray, lp)
         status = lp.solve(GLPK(msg=0))

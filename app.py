@@ -17,6 +17,8 @@ class MyApp():
         fpath = os.getcwd() + '/static/index.html'
         f = open(fpath, 'w')
         keywordOptions = []
+        keywords = [k for k in time_constraints]
+        keywords.sort()
         for keyword in time_constraints:
             if keyword != "HOME":
                 optionsTags = self.generateHourOptions(keyword)

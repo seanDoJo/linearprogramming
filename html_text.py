@@ -50,7 +50,7 @@ indexBegin = """
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Linear Programming</title>
+        <title>Crawlr</title>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
@@ -71,6 +71,8 @@ indexBegin = """
 		var map = null;
 		var start = null;
 		var geocoder = null;
+		var directionsService = null;
+		var directionsDisplay = null;
 	</script>
 
         
@@ -86,15 +88,18 @@ indexBegin = """
                         data: $('#pathdata').serialize(),
                         dataType: 'json',
                         success: function(data) {
+                            var ok = false;
                             document.getElementById("loading").style.display = 'none';
 			    document.getElementById("results").style.display = 'block';
 			    google.maps.event.trigger(map, 'resize');
                             $.each(data, function(k, v) {
                                 if (k == "path"){
                                     if (data[k].length > 0) {
+					ok = true;
                                         for (var i in data[k]) {
-                                            var j = (parseInt(i)+1);
-                                            $("#finalpath").append("<li class='list-group-item' style='margin: 5px'>"+ j.toString() + ") "  + data[k][i] + "</li>");
+                                            var j = 65 + (parseInt(i));
+                                            var sss = String.fromCharCode(j);
+                                            $("#finalpath").append("<li class='list-group-item' style='margin: 5px'>"+ sss + ") "  + data[k][i] + "</li>");
                                         }
                                     } else {
                                         document.getElementById("results").style.display = 'none';
@@ -102,36 +107,49 @@ indexBegin = """
                                     }
                                 } else if (k == "addresses"){
 					if (data[k].length > 0) {
+						ok = true;
 						var bounds = new google.maps.LatLngBounds();
 						var numCalls = data[k].length;
+						var waypts = [];
+						var o = null;
+						var d = null;
+
 						for (var i in data[k]) {
 							var entry = data[k][i];
-							geocoder.geocode({'address': entry}, function(results, status) {
-								if (status == 'OK'){
-									var m = new google.maps.Marker({
-										map: map,
-										position: results[0].geometry.location
-									});
-									bounds.extend(results[0].geometry.location);
-									--numCalls;
-									if(numCalls <= 0) {
-										map.setCenter(bounds.getCenter());
-										google.maps.event.addListenerOnce(map, 'bounds_changed', function(event) {
-											this.setZoom(map.getZoom()-1);
-											if (this.getZoom() > 15) {
-												this.setZoom(15);
-											}
-										});
-										map.fitBounds(bounds);
-									}
-								} else {
-									alert("Geocoding failed!");
-								}
-							});
+	
+							if (i == 0) {
+								o = entry;
+							} else if (i == data[k].length - 1) {
+								d = entry;
+							} else {							
+								waypts.push({
+									location: entry,
+									stopover: true
+								});
+							}
+							
 						}
+						
+						directionsService.route({
+							origin: o,
+							destination: d,
+							waypoints: waypts,
+							optimizeWaypoints: false,
+							travelMode: 'WALKING',
+						}, function(response, status) {
+							if (status == 'OK') {
+								directionsDisplay.setDirections(response);
+							} else {
+								alert('Directions request failed: ' + status);
+							}
+						});
 					}
 				}
                             });
+			    if (ok == false) {
+				document.getElementById("results").style.display = 'none';
+                                document.getElementById("nopath").style.display = 'block';
+			    }
                         }
                     });
                 });
@@ -150,7 +168,7 @@ indexBegin = """
 	<nav class="navbar navbar-default">
 	  <div class="container-fluid">
 	    <div class="navbar-header">
-	      <a class="navbar-brand" href= "/" >CSCI 5654 Project</a>
+	      <a class="navbar-brand" href= "/" >Crawlr</a>
 	    </div> 
 	  </div>
 	</nav>
@@ -162,7 +180,7 @@ indexBegin = """
             <form id="pathdata">
                 <div class="form-group">
                     <h4>Starting Address</h4>
-                    <input class="form-control" type="text" id="addr" style="width:50%" name="start_address" placeholder="Starting Address (E.g. 1769 Rockies Ct, Lafayette, CO)"><br>
+                    <input class="form-control" type="text" id="addr" style="width:50%" name="start_address" placeholder="Address"><br>
                     <h4>Search Radius</h4>
                     <select class="form-control" name="searchRadius" style="width: 50%">
                         <option value=805 selected>0.5 miles</option>
@@ -236,12 +254,15 @@ indexEnd = """
 				zoom: 9,
 				center: {lat: 41.85, lng: -87.65},
 			});
-			var directionsDisplay = new google.maps.DirectionsRenderer;	
-			directionsDisplay.setMap(map)
+			directionsDisplay = new google.maps.DirectionsRenderer;	
+			directionsDisplay.setMap(map);
+			directionsService = new google.maps.DirectionsService;
+			var iA = document.getElementById('addr');
+			var autocomplete = new google.maps.places.Autocomplete(iA);
 		}
 	</script>
 	<script async defer
-	src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAwLw6rb6ifekvYt1vKA2jFvgG9AMCskRQ&callback=initMap">
+	src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAwLw6rb6ifekvYt1vKA2jFvgG9AMCskRQ&libraries=places&callback=initMap">
 	</script>
    </body>
 </html>
